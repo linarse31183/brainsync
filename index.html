@@ -39,7 +39,7 @@
             <div class="bg-[#151b2b] rounded-2xl p-4 border border-gray-800 focus-within:border-teal-500 transition">
                 <textarea id="dump-text" class="w-full bg-transparent outline-none resize-none h-40 text-gray-200 placeholder-gray-600" placeholder="現在在想什麼？點擊下方麥克風直接用說的..."></textarea>
                 <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
-                    <button class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xl text-teal-400 hover:bg-gray-700">🎤</button>
+                    <button onclick="startVoiceInput('dump-text')" id="mic-btn" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xl text-teal-400 hover:bg-gray-700 transition">🎤</button>
                     <button onclick="saveNote('dump')" class="bg-[#059669] hover:bg-[#047857] text-white px-5 py-2 rounded-xl font-medium flex items-center gap-2 transition shadow-lg shadow-teal-900/50">
                         存入大腦 🚀
                     </button>
@@ -50,12 +50,17 @@
         <!-- 2. Smart Note View -->
         <div id="view-note" class="tab-content">
             <h2 class="text-2xl font-bold mb-2">智慧筆記</h2>
-            <p class="text-gray-400 text-sm mb-5">貼上長文、網址，讓 AI 幫你萃取精華並自動上標籤。</p>
+            <p class="text-gray-400 text-sm mb-5">貼上長文、網址，或上傳圖片讓 AI 幫你萃取精華。</p>
             
             <div class="bg-[#151b2b] rounded-2xl p-4 border border-gray-800 focus-within:border-blue-500 transition">
-                <textarea id="note-text" class="w-full bg-transparent outline-none resize-none h-60 text-gray-200 placeholder-gray-600" placeholder="在此貼上長篇文章或複製的網址內容..."></textarea>
+                <textarea id="note-text" class="w-full bg-transparent outline-none resize-none h-48 text-gray-200 placeholder-gray-600" placeholder="在此貼上長篇文章、網址，或點下方相機上傳圖片..."></textarea>
+                <div id="image-preview" class="mb-3 hidden">
+                    <img id="preview-img" class="max-h-32 rounded-lg border border-gray-700 object-cover" />
+                </div>
                 <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
-                    <button class="text-gray-400 text-xl px-2 hover:text-blue-400">📷</button>
+                    <label class="cursor-pointer text-gray-400 text-xl px-2 hover:text-blue-400 transition flex items-center gap-1">
+                        📷 <input type="file" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    </label>
                     <button onclick="saveNote('note')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl font-medium transition shadow-lg shadow-blue-900/50">
                         AI 摘要並儲存 ✨
                     </button>
@@ -78,6 +83,4 @@
             <span class="text-2xl">🧠</span>
             <span class="text-[10px] font-medium tracking-wide">Brain Dump</span>
         </button>
-        <button onclick="switchTab('note')" id="nav-note" class="nav-item nav-note flex flex-col items-center gap-1 w-20">
-            <span class="text-2xl">✨</span>
-            <span class="text-[10px] font-medium tracking-wide
+        <button onclick="

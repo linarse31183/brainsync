@@ -92,10 +92,17 @@
         <img id="modal-img" class="max-w-full max-h-full rounded-2xl border border-gray-700 shadow-2xl" />
     </div>
 
+    <!-- 編輯內文與標籤 Modal -->
     <div id="edit-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-[#151b2b] w-full max-w-lg p-5 rounded-2xl border border-gray-800 shadow-2xl">
-            <h3 class="text-lg font-bold mb-3 text-teal-400">✏️ 編輯筆記與標籤</h3>
-            <textarea id="edit-textarea" class="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl p-3 text-lg text-gray-200 h-48 outline-none mb-4" placeholder="在此修改內容，或手動加上 #標籤"></textarea>
+            <h3 class="text-lg font-bold mb-2 text-teal-400">✏️ 編輯筆記與標籤</h3>
+            <p class="text-xs text-gray-400 mb-3">點擊下方現有標籤可快速加入內文結尾：</p>
+            
+            <!-- 現有標籤快捷清單 -->
+            <div id="modal-tag-chips" class="flex gap-1.5 overflow-x-auto mb-3 pb-2"></div>
+
+            <textarea id="edit-textarea" class="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl p-3 text-lg text-gray-200 h-40 outline-none mb-4" placeholder="在此修改內容，或手動加上 #標籤"></textarea>
+            
             <div class="flex justify-end gap-3">
                 <button onclick="closeEditModal()" class="px-4 py-2 rounded-xl bg-gray-800 text-gray-300 hover:text-white text-sm">取消</button>
                 <button onclick="saveEditedNote()" class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium text-sm shadow">儲存修改</button>
@@ -211,7 +218,6 @@
             });
         }
 
-        // 自動蒐集目前所有的現有標籤
         function getExistingTags() {
             const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             let tags = new Set();
@@ -235,15 +241,14 @@
             btn.disabled = true;
 
             try {
-                // 取得現有標籤清單傳給 AI，避免重複建立相似標籤
                 const existingTags = getExistingTags();
-                let tagInstruction = existingTags.length > 0 
-                    ? `【重要規則】請優先從以下現有標籤中挑選最適用的分類：${existingTags.join(', ')}。只有在完全不適用時，才可以建立一個新的簡短標籤。結尾請務必加上 #標籤`
-                    : "請在結尾處加上合適的分類標籤（格式如：#標籤）。";
+                let tagRule = existingTags.length > 0 
+                    ? `【強制規定】請優先從現有標籤中挑選一個：${existingTags.join(', ')}。若皆不適用，請自創一個簡短標籤。並務必將標籤放在回傳內容的最結尾（格式為：#標籤）。`
+                    : `【強制規定】請務必在回傳內容的最結尾加上一個分類標籤（格式為：#標籤）。`;
 
                 const promptText = type === 'dump' 
-                    ? `這是一段隨手筆記。請提供重點摘要，${tagInstruction}。內容：` + content
-                    : `請將以下內容進行結構化重點摘要，${tagInstruction}。內容：` + content;
+                    ? `這是一段隨手筆記。請提供重點摘要，${tagRule} 內容：` + content
+                    : `請將以下內容進行結構化重點摘要，${tagRule} 內容：` + content;
 
                 let parts = [{ text: promptText }];
                 uploadedImagesBase64.forEach(imgBase64 => {
@@ -259,7 +264,11 @@
                 const data = await res.json();
                 if (data.error) throw new Error(data.error.message);
 
-                const rawSummary = data.candidates[0].content.parts[0].text;
+                let rawSummary = data.candidates[0].content.parts[0].text;
+
+                if (!/#[\u4e00-\u9fa5a-zA-Z0-9_]+/.test(rawSummary)) {
+                    rawSummary += "\n\n#未分類";
+                }
 
                 const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
                 notes.unshift({
@@ -362,22 +371,46 @@
             if (modal) modal.classList.add('hidden');
         }
 
+        // 開啟編輯視窗並動態載入現有標籤按鈕
         function openEditModal(id) {
             currentEditingId = id;
             const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             const note = notes.find(n => n.id === id);
             const textarea = document.getElementById('edit-textarea');
             const modal = document.getElementById('edit-modal');
-            if (note && textarea && modal) {
+            const tagChipsContainer = document.getElementById('modal-tag-chips');
+
+            if (note && textarea && modal && tagChipsContainer) {
                 textarea.value = note.summary;
+                
+                // 動態渲染編輯視窗內的現有標籤快捷按鈕
+                const existingTags = getExistingTags();
+                if (existingTags.length > 0) {
+                    tagChipsContainer.innerHTML = existingTags.map(tag => `
+                        <button type="button" onclick="appendTagToEdit('${tag}')" class="text-xs bg-gray-800 hover:bg-teal-700 text-teal-300 hover:text-white px-2.5 py-1 rounded-lg whitespace-nowrap transition border border-gray-700">${tag}</button>
+                    `).join('');
+                } else {
+                    tagChipsContainer.innerHTML = '<span class="text-xs text-gray-500">目前尚無其他現有標籤</span>';
+                }
+
                 modal.classList.remove('hidden');
             }
         }
+
+        // 點擊快捷標籤後自動追加到編輯框結尾
+        function appendTagToEdit(tag) {
+            const textarea = document.getElementById('edit-textarea');
+            if (textarea) {
+                textarea.value = textarea.value.trim() + ' ' + tag;
+            }
+        }
+
         function closeEditModal() {
             const modal = document.getElementById('edit-modal');
             if (modal) modal.classList.add('hidden');
             currentEditingId = null;
         }
+
         function saveEditedNote() {
             const textarea = document.getElementById('edit-textarea');
             if (!textarea) return;

@@ -18,16 +18,17 @@
         .nav-item.active.nav-note { color: #3b82f6; }
         .nav-item.active.nav-library { color: #8b5cf6; }
         
-        .summary-box h3 { font-size: 1.1rem; font-weight: bold; color: #38bdf8; margin-top: 10px; margin-bottom: 4px; }
-        .summary-box p { margin-bottom: 6px; line-height: 1.5; color: #e2e8f0; }
-        .summary-box ul, .summary-box ol { padding-left: 20px; margin-bottom: 6px; }
-        .summary-box li { margin-bottom: 4px; line-height: 1.4; color: #cbd5e1; }
+        /* 強效放大字體與行距設定 */
+        .summary-box { font-size: 1.1rem !important; line-height: 1.8 !important; color: #e2e8f0 !important; }
+        .summary-box h3 { font-size: 1.3rem !important; font-weight: bold; color: #38bdf8 !important; margin-top: 14px; margin-bottom: 8px; }
+        .summary-box p { margin-bottom: 10px; }
+        .summary-box ul, .summary-box ol { padding-left: 24px; margin-bottom: 10px; }
+        .summary-box li { margin-bottom: 8px; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="min-h-screen">
-    <!-- Header with Random Inspiration Banner -->
     <header class="p-5 bg-[#0a0f1d] sticky top-0 z-10 border-b border-gray-800/50">
         <div class="flex justify-between items-center mb-3">
             <h1 class="text-xl font-bold flex items-center gap-2">
@@ -35,21 +36,19 @@
             </h1>
             <button onclick="askApiKey()" class="text-gray-400 hover:text-white transition text-xs bg-gray-800/50 px-3 py-1.5 rounded-xl border border-gray-700">⚙️ API Key</button>
         </div>
-        <!-- 隨機靈感展示區 -->
         <div id="hero-banner" onclick="switchTab('library')" class="bg-gradient-to-r from-blue-950/40 to-purple-950/40 border border-blue-900/40 rounded-xl p-3 text-xs text-gray-300 cursor-pointer shadow-inner hover:border-blue-700/60 transition">
             <div class="text-[10px] text-blue-400 font-bold mb-1 flex items-center gap-1">✨ 靈感隨機抽籤 (點擊查看全部)</div>
-            <div id="hero-text" class="truncate">載入中...</div>
+            <div id="hero-text" class="truncate text-base">載入中...</div>
         </div>
     </header>
 
     <main class="p-5">
-        <!-- 1. Brain Dump View -->
         <div id="view-dump" class="tab-content active">
             <h2 class="text-2xl font-bold mb-2">清空大腦</h2>
             <p class="text-gray-400 text-sm mb-5">快速記錄靈感、短期待辦與採購清單。AI 會自動為你分類與潤飾。</p>
             
             <div class="bg-[#151b2b] rounded-2xl p-4 border border-gray-800 focus-within:border-teal-500 transition shadow-xl">
-                <textarea id="dump-text" class="w-full bg-transparent outline-none resize-none h-44 text-gray-200 placeholder-gray-600" placeholder="現在在想什麼？點擊下方麥克風直接用說的..."></textarea>
+                <textarea id="dump-text" class="w-full bg-transparent outline-none resize-none h-44 text-lg text-gray-200 placeholder-gray-600" placeholder="現在在想什麼？點擊下方麥克風直接用說的..."></textarea>
                 <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
                     <button onclick="startVoiceInput('dump-text')" id="mic-btn" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xl text-teal-400 hover:bg-gray-700 transition shadow">🎤</button>
                     <button onclick="saveNote('dump')" class="bg-[#059669] hover:bg-[#047857] text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition shadow-lg shadow-teal-900/50">
@@ -59,19 +58,17 @@
             </div>
         </div>
 
-        <!-- 2. Smart Note View -->
         <div id="view-note" class="tab-content">
             <h2 class="text-2xl font-bold mb-2">智慧筆記</h2>
             <p class="text-gray-400 text-sm mb-5">貼上長文、網址，或**一次上傳多張圖片**讓 AI 綜合摘要。</p>
             
             <div class="bg-[#151b2b] rounded-2xl p-4 border border-gray-800 focus-within:border-blue-500 transition shadow-xl">
-                <textarea id="note-text" class="w-full bg-transparent outline-none resize-none h-28 text-gray-200 placeholder-gray-600" placeholder="在此輸入補充說明，或上傳多張圖片討論整個主題..."></textarea>
+                <textarea id="note-text" class="w-full bg-transparent outline-none resize-none h-28 text-lg text-gray-200 placeholder-gray-600" placeholder="在此輸入補充說明，或上傳多張圖片討論整個主題..."></textarea>
                 
-                <!-- 多圖預覽區 -->
                 <div id="image-preview-container" class="flex gap-2 overflow-x-auto mb-3 pb-2 hidden"></div>
 
                 <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
-                    <label class="cursor-pointer text-gray-400 text-sm px-3 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 hover:text-blue-400 transition flex items-center gap-1.5">
+                    <label class="cursor-pointer text-gray-300 text-sm px-3.5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 hover:text-blue-400 transition flex items-center gap-1.5">
                         📷 上傳多張圖片 <input type="file" accept="image/*" multiple class="hidden" onchange="handleImagesUpload(event)">
                     </label>
                     <button onclick="saveNote('note')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition shadow-lg shadow-blue-900/50">
@@ -81,34 +78,27 @@
             </div>
         </div>
 
-        <!-- 3. Library View -->
         <div id="view-library" class="tab-content">
             <div class="flex justify-between items-center mb-3">
                 <h2 class="text-2xl font-bold">私人知識庫</h2>
                 <button onclick="clearLibrary()" class="text-xs text-red-400 hover:text-red-300 bg-red-950/30 px-3 py-1.5 rounded-lg border border-red-900/50">清空全部</button>
             </div>
             
-            <!-- 標籤篩選列 -->
-            <div id="tag-filter-bar" class="flex gap-2 overflow-x-auto mb-4 pb-2">
-                <!-- 動態載入標籤 -->
-            </div>
-
+            <div id="tag-filter-bar" class="flex gap-2 overflow-x-auto mb-4 pb-2"></div>
             <div id="library-list" class="space-y-4 pb-10"></div>
         </div>
     </main>
 
-    <!-- 圖片放大預覽燈箱 Modal -->
     <div id="image-modal" onclick="closeImageModal()" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4">
         <img id="modal-img" class="max-w-full max-h-full rounded-2xl border border-gray-700 shadow-2xl" />
     </div>
 
-    <!-- 編輯內文 Modal -->
     <div id="edit-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-[#151b2b] w-full max-w-lg p-5 rounded-2xl border border-gray-800 shadow-2xl">
             <h3 class="text-lg font-bold mb-3 text-teal-400">✏️ 編輯筆記內容</h3>
-            <textarea id="edit-textarea" class="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl p-3 text-gray-200 h-48 outline-none mb-4 text-sm"></textarea>
+            <textarea id="edit-textarea" class="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl p-3 text-lg text-gray-200 h-48 outline-none mb-4"></textarea>
             <div class="flex justify-end gap-3">
-                <button onclick="closeEditModal()" class="px-4 py-2 rounded-xl bg-gray-800 text-gray-400 hover:text-white text-sm">取消</button>
+                <button onclick="closeEditModal()" class="px-4 py-2 rounded-xl bg-gray-800 text-gray-300 hover:text-white text-sm">取消</button>
                 <button onclick="saveEditedNote()" class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium text-sm shadow">儲存修改</button>
             </div>
         </div>
@@ -131,9 +121,9 @@
 
     <script>
         let apiKey = localStorage.getItem('gemini_api_key');
-        let uploadedImagesBase64 = []; // 支援多圖陣列
+        let uploadedImagesBase64 = [];
         let currentEditingId = null;
-        let activeTagFilter = null; // 當前選擇的標籤篩選
+        let activeTagFilter = null;
 
         function askApiKey() {
             const key = prompt('請輸入您的 Gemini API Key (申請免費，資料僅存手機):', apiKey || '');
@@ -150,13 +140,12 @@
             document.getElementById('view-' + tabId).classList.add('active');
             document.getElementById('nav-' + tabId).classList.add('active');
             if (tabId === 'library') {
-                activeTagFilter = null; // 切換回 Library 時重置篩選
+                activeTagFilter = null;
                 loadLibrary();
             }
             updateHeroBanner();
         }
 
-        // 隨機抽選頁首靈感
         function updateHeroBanner() {
             const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             const heroText = document.getElementById('hero-text');
@@ -185,7 +174,6 @@
             recognition.start();
         }
 
-        // 多圖上傳處理
         function handleImagesUpload(e) {
             const files = Array.from(e.target.files);
             if (files.length === 0) return;
@@ -218,13 +206,13 @@
             });
         }
 
-        // 智慧清洗符號（去除 ***, ### 等無意義語法）
+        // 溫和清洗 Markdown 標題符號，絕不觸碰結尾的 #標籤
         function cleanAiOutput(text) {
             return text
-                .replace(/#{1,6}\s?/g, '') // 移除標題符號
-                .replace(/\*\*\*/g, '')     // 移除粗斜體符號
-                .replace(/\*\*/g, '')       // 移除粗體符號
-                .replace(/---/g, '');       // 移除分隔線
+                .replace(/^#{1,6}\s?/gm, '') 
+                .replace(/\*\*\*/g, '')
+                .replace(/\*\*/g, '')
+                .replace(/---/g, '');
         }
 
         async function saveNote(type) {
@@ -240,8 +228,8 @@
 
             try {
                 const promptText = type === 'dump' 
-                    ? "這是一段隨手筆記或待辦事項。請給予1個分類標籤(#開頭)並潤飾。內容：" + content
-                    : "請將以下長文、網址或多張圖片內容進行跨圖片的綜合結構化重點摘要，並在最後提供分類標籤(#開頭)。內容：" + content;
+                    ? "這是一段隨手筆記或待辦事項。請給予1個分類標籤(格式為 #標籤 放在最後)並潤飾。內容：" + content
+                    : "請將以下長文、網址或多張圖片內容進行跨圖片的綜合結構化重點摘要，並在最後獨立一行提供分類標籤(格式為 #標籤)。內容：" + content;
 
                 let parts = [{ text: promptText }];
                 uploadedImagesBase64.forEach(imgBase64 => {
@@ -258,13 +246,13 @@
                 if (data.error) throw new Error(data.error.message);
 
                 const rawSummary = data.candidates[0].content.parts[0].text;
-                const cleanedSummary = cleanAiOutput(rawSummary); // 清洗雜亂符號
+                const cleanedSummary = cleanAiOutput(rawSummary);
 
                 const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
                 notes.unshift({
                     id: Date.now(),
                     original: content,
-                    images: [...uploadedImagesBase64], // 保存多圖陣列
+                    images: [...uploadedImagesBase64],
                     summary: cleanedSummary,
                     date: new Date().toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' }),
                     type
@@ -273,8 +261,11 @@
 
                 document.getElementById(inputId).value = '';
                 uploadedImagesBase64 = [];
-                document.getElementById('image-preview-container.classList').add('hidden');
-                document.getElementById('image-preview-container').innerHTML = '';
+                const container = document.getElementById('image-preview-container');
+                if (container) {
+                    container.classList.add('hidden');
+                    container.innerHTML = '';
+                }
                 
                 switchTab('library');
             } catch (err) {
@@ -290,54 +281,50 @@
             const container = document.getElementById('library-list');
             const tagBar = document.getElementById('tag-filter-bar');
 
-            // 收集所有出現過的標籤
             let allTags = new Set();
             notes.forEach(n => {
                 const matches = n.summary.match(/#[^\s#]+/g);
                 if (matches) matches.forEach(t => allTags.add(t));
             });
 
-            // 渲染標籤篩選列
             tagBar.innerHTML = `
-                <button onclick="filterByTag(null)" class="text-xs px-3 py-1.5 rounded-xl whitespace-nowrap transition ${activeTagFilter === null ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-400 hover:text-white'}">全部</button>
+                <button onclick="filterByTag(null)" class="text-sm px-4 py-2 rounded-xl whitespace-nowrap transition ${activeTagFilter === null ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">全部</button>
                 ${Array.from(allTags).map(tag => `
-                    <button onclick="filterByTag('${tag}')" class="text-xs px-3 py-1.5 rounded-xl whitespace-nowrap transition ${activeTagFilter === tag ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-400 hover:text-white'}">${tag}</button>
+                    <button onclick="filterByTag('${tag}')" class="text-sm px-4 py-2 rounded-xl whitespace-nowrap transition ${activeTagFilter === tag ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">${tag}</button>
                 `).join('')}
             `;
 
-            // 根據選中的標籤篩選筆記
             let filteredNotes = notes;
             if (activeTagFilter) {
                 filteredNotes = notes.filter(n => n.summary.includes(activeTagFilter));
             }
 
             if (filteredNotes.length === 0) {
-                container.innerHTML = '<div class="text-center py-20 text-gray-500"><span class="text-4xl block mb-3">📭</span>沒有找到符合此標籤的筆記！</div>';
+                container.innerHTML = '<div class="text-center py-20 text-gray-400 text-base"><span class="text-4xl block mb-3">📭</span>沒有找到符合此標籤的筆記！</div>';
                 return;
             }
 
             container.innerHTML = filteredNotes.map(n => `
                 <div class="bg-[#151b2b] p-5 rounded-2xl border border-gray-800 shadow-lg relative">
                     <div class="absolute top-4 right-4 flex gap-2">
-                        <button onclick="openEditModal(${n.id})" class="text-gray-400 hover:text-teal-300 text-xs px-2 py-1 bg-gray-800/80 rounded">✏️ 編輯</button>
-                        <button onclick="deleteNote(${n.id})" class="text-gray-400 hover:text-red-400 text-xs px-2 py-1 bg-gray-800/80 rounded">刪除</button>
+                        <button onclick="openEditModal(${n.id})" class="text-gray-300 hover:text-teal-300 text-xs px-3 py-1.5 bg-gray-800/90 rounded-lg">✏️ 編輯</button>
+                        <button onclick="deleteNote(${n.id})" class="text-gray-300 hover:text-red-400 text-xs px-3 py-1.5 bg-gray-800/90 rounded-lg">刪除</button>
                     </div>
-                    <div class="text-xs font-bold px-2 py-0.5 rounded bg-gray-800 text-gray-400 inline-block mb-2">${n.type === 'dump' ? '🧠 Dump' : '✨ Note'}</div>
-                    <div class="text-xs text-gray-500 mb-3">${n.date}</div>
+                    <div class="text-xs font-bold px-2.5 py-1 rounded bg-gray-800 text-gray-300 inline-block mb-2">${n.type === 'dump' ? '🧠 Dump' : '✨ Note'}</div>
+                    <div class="text-xs text-gray-400 mb-3">${n.date}</div>
 
-                    ${n.original ? `<div class="text-gray-300 text-sm whitespace-pre-wrap mb-3 border-l-2 border-gray-700 pl-3">${n.original}</div>` : ''}
+                    ${n.original ? `<div class="text-gray-200 text-lg whitespace-pre-wrap mb-3 border-l-2 border-gray-700 pl-3 leading-relaxed">${n.original}</div>` : ''}
                     
-                    <!-- 多圖預覽列 -->
                     ${n.images && n.images.length > 0 ? `
                         <div class="mb-4 flex gap-2 overflow-x-auto pb-2">
                             ${n.images.map(img => `
-                                <img src="${img}" onclick="openImageModal('${img}')" class="h-24 w-24 rounded-xl border border-gray-700 object-cover shadow cursor-pointer hover:opacity-90 transition flex-shrink-0" alt="原圖" />
+                                <img src="${img}" onclick="openImageModal('${img}')" class="h-28 w-28 rounded-xl border border-gray-700 object-cover shadow cursor-pointer hover:opacity-90 transition flex-shrink-0" alt="原圖" />
                             `).join('')}
                         </div>
                     ` : ''}
 
                     <div class="bg-gray-800/60 p-4 rounded-xl border border-gray-700/50 summary-box">
-                        <div class="text-teal-300 text-sm whitespace-pre-wrap leading-relaxed">${n.summary}</div>
+                        <div class="text-teal-300 whitespace-pre-wrap">${n.summary}</div>
                     </div>
                 </div>
             `).join('');
@@ -400,7 +387,6 @@
             }
         }
 
-        // 初始化執行隨機靈感抽籤
         updateHeroBanner();
     </script>
 </body>

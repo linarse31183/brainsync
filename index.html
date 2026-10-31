@@ -94,8 +94,8 @@
         function askApiKey() {
             const key = prompt('請輸入您的 Gemini API Key (申請免費，資料僅存手機):', apiKey || '');
             if (key) {
-                apiKey = key;
-                localStorage.setItem('gemini_api_key', key);
+                apiKey = key.trim();
+                localStorage.setItem('gemini_api_key', apiKey);
                 alert('API Key 已成功綁定本手機！');
             }
         }
@@ -134,7 +134,21 @@
                     ? "這是一段簡短的隨手筆記或待辦事項。請直接給予1個最適合的分類標籤(以#開頭)，並適當潤飾語句使其清晰。內容：" + content
                     : "請將以下長文或知識進行結構化摘要(條列重點)，並在最後提供3個分類標籤(以#開頭)。內容：" + content;
 
-                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + apiKey, {
+                // 【自動偵測可用模型引擎】
+                let targetModel = 'models/gemini-1.5-flash'; 
+                try {
+                    const listResp = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey);
+                    const listData = await listResp.json();
+                    if (listData && listData.models) {
+                        const validModel = listData.models.find(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent') && m.name.includes('gemini'));
+                        if (validModel) targetModel = validModel.name;
+                    }
+                } catch(e) {
+                    console.log('模型自動偵測遭遇異常，嘗試使用安全預設值。');
+                }
+
+                // 呼叫 API
+                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/' + targetModel + ':generateContent?key=' + apiKey, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -164,7 +178,7 @@
                 switchTab('library');
                 
             } catch (err) {
-                alert('API 呼叫失敗，請檢查網路或 API Key 是否正確。詳細錯誤：' + err.message);
+                alert('連線失敗。系統已嘗試自動尋找模型但仍遭遇錯誤，請確認 API 鑰匙無誤。詳細原因：' + err.message);
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;

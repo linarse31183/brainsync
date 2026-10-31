@@ -18,7 +18,6 @@
         .nav-item.active.nav-note { color: #3b82f6; }
         .nav-item.active.nav-library { color: #8b5cf6; }
         
-        /* 強效放大字體與行距設定 */
         .summary-box { font-size: 1.1rem !important; line-height: 1.8 !important; color: #e2e8f0 !important; }
         .summary-box h3 { font-size: 1.3rem !important; font-weight: bold; color: #38bdf8 !important; margin-top: 14px; margin-bottom: 8px; }
         .summary-box p { margin-bottom: 10px; }
@@ -137,8 +136,10 @@
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            document.getElementById('view-' + tabId).classList.add('active');
-            document.getElementById('nav-' + tabId).classList.add('active');
+            const targetTab = document.getElementById('view-' + tabId);
+            const targetNav = document.getElementById('nav-' + tabId);
+            if (targetTab) targetTab.classList.add('active');
+            if (targetNav) targetNav.classList.add('active');
             if (tabId === 'library') {
                 activeTagFilter = null;
                 loadLibrary();
@@ -149,12 +150,13 @@
         function updateHeroBanner() {
             const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             const heroText = document.getElementById('hero-text');
+            if (!heroText) return;
             if (notes.length === 0) {
                 heroText.innerText = "目前知識庫空空如也，點此開始記錄靈感...";
                 return;
             }
             const randomNote = notes[Math.floor(Math.random() * notes.length)];
-            const cleanText = randomNote.summary.replace(/[#*`]/g, '').trim();
+            const cleanText = (randomNote.summary || '').replace(/[*`]/g, '').trim();
             heroText.innerText = cleanText.substring(0, 45) + '...';
         }
 
@@ -164,13 +166,14 @@
             const recognition = new SpeechRecognition();
             recognition.lang = 'zh-TW';
             const micBtn = document.getElementById('mic-btn');
-            micBtn.style.backgroundColor = '#ef4444';
+            if (micBtn) micBtn.style.backgroundColor = '#ef4444';
             recognition.onresult = (e) => {
-                document.getElementById(targetId).value += ' ' + e.results[0][0].transcript;
-                micBtn.style.backgroundColor = '';
+                const targetEl = document.getElementById(targetId);
+                if (targetEl) targetEl.value += ' ' + e.results[0][0].transcript;
+                if (micBtn) micBtn.style.backgroundColor = '';
             };
-            recognition.onerror = () => micBtn.style.backgroundColor = '';
-            recognition.onend = () => micBtn.style.backgroundColor = '';
+            recognition.onerror = () => { if (micBtn) micBtn.style.backgroundColor = ''; };
+            recognition.onend = () => { if (micBtn) micBtn.style.backgroundColor = ''; };
             recognition.start();
         }
 
@@ -179,7 +182,9 @@
             if (files.length === 0) return;
 
             const container = document.getElementById('image-preview-container');
+            if (!container) return;
             container.classList.remove('hidden');
+            container.innerHTML = ''; // 清空舊預覽避免重複
 
             files.forEach(file => {
                 const reader = new FileReader();
@@ -206,19 +211,11 @@
             });
         }
 
-        // 溫和清洗 Markdown 標題符號，絕不觸碰結尾的 #標籤
-        function cleanAiOutput(text) {
-            return text
-                .replace(/^#{1,6}\s?/gm, '') 
-                .replace(/\*\*\*/g, '')
-                .replace(/\*\*/g, '')
-                .replace(/---/g, '');
-        }
-
         async function saveNote(type) {
             if (!apiKey) { askApiKey(); if (!apiKey) return; }
             const inputId = type === 'dump' ? 'dump-text' : 'note-text';
-            const content = document.getElementById(inputId).value;
+            const inputEl = document.getElementById(inputId);
+            const content = inputEl ? inputEl.value : '';
             if (!content.trim() && uploadedImagesBase64.length === 0) return alert('請先輸入內容或上傳圖片喔！');
 
             const btn = event.currentTarget;
@@ -246,20 +243,19 @@
                 if (data.error) throw new Error(data.error.message);
 
                 const rawSummary = data.candidates[0].content.parts[0].text;
-                const cleanedSummary = cleanAiOutput(rawSummary);
 
                 const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
                 notes.unshift({
                     id: Date.now(),
                     original: content,
                     images: [...uploadedImagesBase64],
-                    summary: cleanedSummary,
+                    summary: rawSummary, // 完整保留 AI 原始輸出，絕不亂砍 # 號
                     date: new Date().toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' }),
                     type
                 });
                 localStorage.setItem('brainsync_notes', JSON.stringify(notes));
 
-                document.getElementById(inputId).value = '';
+                if (inputEl) inputEl.value = '';
                 uploadedImagesBase64 = [];
                 const container = document.getElementById('image-preview-container');
                 if (container) {
@@ -280,10 +276,11 @@
             const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             const container = document.getElementById('library-list');
             const tagBar = document.getElementById('tag-filter-bar');
+            if (!container || !tagBar) return;
 
             let allTags = new Set();
             notes.forEach(n => {
-                const matches = n.summary.match(/#[^\s#]+/g);
+                const matches = (n.summary || '').match(/#[^\s#]+/g);
                 if (matches) matches.forEach(t => allTags.add(t));
             });
 
@@ -296,7 +293,7 @@
 
             let filteredNotes = notes;
             if (activeTagFilter) {
-                filteredNotes = notes.filter(n => n.summary.includes(activeTagFilter));
+                filteredNotes = notes.filter(n => (n.summary || '').includes(activeTagFilter));
             }
 
             if (filteredNotes.length === 0) {
@@ -336,28 +333,38 @@
         }
 
         function openImageModal(src) {
-            document.getElementById('modal-img').src = src;
-            document.getElementById('image-modal').classList.remove('hidden');
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-img');
+            if (modal && modalImg) {
+                modalImg.src = src;
+                modal.classList.remove('hidden');
+            }
         }
         function closeImageModal() {
-            document.getElementById('image-modal').classList.add('hidden');
+            const modal = document.getElementById('image-modal');
+            if (modal) modal.classList.add('hidden');
         }
 
         function openEditModal(id) {
             currentEditingId = id;
             const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             const note = notes.find(n => n.id === id);
-            if (note) {
-                document.getElementById('edit-textarea').value = note.summary;
-                document.getElementById('edit-modal').classList.remove('hidden');
+            const textarea = document.getElementById('edit-textarea');
+            const modal = document.getElementById('edit-modal');
+            if (note && textarea && modal) {
+                textarea.value = note.summary;
+                modal.classList.remove('hidden');
             }
         }
         function closeEditModal() {
-            document.getElementById('edit-modal').classList.add('hidden');
+            const modal = document.getElementById('edit-modal');
+            if (modal) modal.classList.add('hidden');
             currentEditingId = null;
         }
         function saveEditedNote() {
-            const newText = document.getElementById('edit-textarea').value;
+            const textarea = document.getElementById('edit-textarea');
+            if (!textarea) return;
+            const newText = textarea.value;
             let notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             const index = notes.findIndex(n => n.id === currentEditingId);
             if (index !== -1) {

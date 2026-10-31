@@ -92,16 +92,19 @@
         <img id="modal-img" class="max-w-full max-h-full rounded-2xl border border-gray-700 shadow-2xl" />
     </div>
 
-    <!-- 編輯內文與標籤 Modal -->
+    <!-- 編輯內文與標籤 Modal (獨立標籤欄位) -->
     <div id="edit-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-[#151b2b] w-full max-w-lg p-5 rounded-2xl border border-gray-800 shadow-2xl">
             <h3 class="text-lg font-bold mb-2 text-teal-400">✏️ 編輯筆記與標籤</h3>
-            <p class="text-xs text-gray-400 mb-3">點擊下方現有標籤可快速加入內文結尾：</p>
             
-            <!-- 現有標籤快捷清單 -->
+            <label class="text-xs text-gray-400 block mb-1">標籤 (多個標籤請用空格隔開，例如: #生活 #工作)：</label>
+            <input type="text" id="edit-tags-input" class="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl p-3 text-base text-teal-300 outline-none mb-3" placeholder="#標籤">
+            
+            <p class="text-xs text-gray-400 mb-1">點擊下方現有標籤快速加入：</p>
             <div id="modal-tag-chips" class="flex gap-1.5 overflow-x-auto mb-3 pb-2"></div>
 
-            <textarea id="edit-textarea" class="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl p-3 text-lg text-gray-200 h-40 outline-none mb-4" placeholder="在此修改內容，或手動加上 #標籤"></textarea>
+            <label class="text-xs text-gray-400 block mb-1">摘要內文：</label>
+            <textarea id="edit-textarea" class="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl p-3 text-base text-gray-200 h-36 outline-none mb-4"></textarea>
             
             <div class="flex justify-end gap-3">
                 <button onclick="closeEditModal()" class="px-4 py-2 rounded-xl bg-gray-800 text-gray-300 hover:text-white text-sm">取消</button>
@@ -222,8 +225,9 @@
             const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             let tags = new Set();
             notes.forEach(n => {
-                const matches = (n.summary || '').match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
-                if (matches) matches.forEach(t => tags.add(t));
+                if (n.tags && Array.isArray(n.tags)) {
+                    n.tags.forEach(t => tags.add(t));
+                }
             });
             return Array.from(tags);
         }
@@ -242,13 +246,20 @@
 
             try {
                 const existingTags = getExistingTags();
-                let tagRule = existingTags.length > 0 
-                    ? `【強制規定】請優先從現有標籤中挑選一個：${existingTags.join(', ')}。若皆不適用，請自創一個簡短標籤。並務必將標籤放在回傳內容的最結尾（格式為：#標籤）。`
-                    : `【強制規定】請務必在回傳內容的最結尾加上一個分類標籤（格式為：#標籤）。`;
+                let tagListStr = existingTags.length > 0 ? existingTags.join(', ') : '無';
 
-                const promptText = type === 'dump' 
-                    ? `這是一段隨手筆記。請提供重點摘要，${tagRule} 內容：` + content
-                    : `請將以下內容進行結構化重點摘要，${tagRule} 內容：` + content;
+                // 指令 AI 回傳嚴格的 JSON 格式或特定分隔，確保標籤精準抓取
+                const promptText = `請幫我將以下內容進行結構化重點摘要。
+現有標籤清單：[${tagListStr}]
+請從現有標籤中選出 1 個最適合的分類，若完全不符合則自創一個簡短標籤（格式為 #標籤）。
+請務必嚴格依照以下格式回傳（不要包含其他多餘包裝）：
+【摘要】
+(在此填入重點摘要)
+
+【標籤】
+(#你的標籤)
+
+內容：` + content;
 
                 let parts = [{ text: promptText }];
                 uploadedImagesBase64.forEach(imgBase64 => {
@@ -264,10 +275,26 @@
                 const data = await res.json();
                 if (data.error) throw new Error(data.error.message);
 
-                let rawSummary = data.candidates[0].content.parts[0].text;
+                const aiResponseText = data.candidates[0].content.parts[0].text;
 
-                if (!/#[\u4e00-\u9fa5a-zA-Z0-9_]+/.test(rawSummary)) {
-                    rawSummary += "\n\n#未分類";
+                // 解析 AI 回傳的結構
+                let summaryPart = aiResponseText;
+                let extractedTags = ["#未分類"];
+
+                if (aiResponseText.includes("【標籤】")) {
+                    const partsSplit = aiResponseText.split("【標籤】");
+                    summaryPart = partsSplit[0].replace("【摘要】", "").trim();
+                    const tagString = partsSplit[1].trim();
+                    const tagMatches = tagString.match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
+                    if (tagMatches && tagMatches.length > 0) {
+                        extractedTags = tagMatches;
+                    }
+                } else {
+                    // 備用防呆抓取
+                    const matches = aiResponseText.match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
+                    if (matches && matches.length > 0) {
+                        extractedTags = [matches[matches.length - 1]];
+                    }
                 }
 
                 const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
@@ -275,7 +302,8 @@
                     id: Date.now(),
                     original: content,
                     images: [...uploadedImagesBase64],
-                    summary: rawSummary,
+                    summary: summaryPart,
+                    tags: extractedTags, // 獨立儲存標籤陣列
                     date: new Date().toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' }),
                     type
                 });
@@ -306,8 +334,13 @@
 
             let allTags = new Set();
             notes.forEach(n => {
-                const matches = (n.summary || '').match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
-                if (matches) matches.forEach(t => allTags.add(t));
+                // 相容舊資料與新資料格式
+                if (n.tags && Array.isArray(n.tags)) {
+                    n.tags.forEach(t => allTags.add(t));
+                } else {
+                    const matches = (n.summary || '').match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
+                    if (matches) matches.forEach(t => allTags.add(t));
+                }
             });
 
             tagBar.innerHTML = `
@@ -319,15 +352,27 @@
 
             let filteredNotes = notes;
             if (activeTagFilter) {
-                filteredNotes = notes.filter(n => (n.summary || '').includes(activeTagFilter));
+                filteredNotes = notes.filter(n => {
+                    if (n.tags && Array.isArray(n.tags)) {
+                        return n.tags.includes(activeTagFilter);
+                    }
+                    return (n.summary || '').includes(activeTagFilter);
+                });
             }
 
             if (filteredNotes.length === 0) {
-                container.innerHTML = '<div class="text-center py-20 text-gray-400 text-base"><span class="text-4xl block mb-3">📭</span>沒有找到符合此標籤的筆記！你可以點擊右上角「編輯」手動補上 #標籤。</div>';
+                container.innerHTML = '<div class="text-center py-20 text-gray-400 text-base"><span class="text-4xl block mb-3">📭</span>沒有找到符合此標籤的筆記！你可以點擊右上角「編輯」手動補上標籤。</div>';
                 return;
             }
 
-            container.innerHTML = filteredNotes.map(n => `
+            container.innerHTML = filteredNotes.map(n => {
+                let noteTags = n.tags && Array.isArray(n.tags) ? n.tags : [];
+                if (noteTags.length === 0) {
+                    const matches = (n.summary || '').match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
+                    if (matches) noteTags = matches;
+                }
+
+                return `
                 <div class="bg-[#151b2b] p-5 rounded-2xl border border-gray-800 shadow-lg relative">
                     <div class="absolute top-4 right-4 flex gap-2">
                         <button onclick="openEditModal(${n.id})" class="text-gray-300 hover:text-teal-300 text-xs px-3 py-1.5 bg-gray-800/90 rounded-lg">✏️ 編輯</button>
@@ -335,6 +380,11 @@
                     </div>
                     <div class="text-xs font-bold px-2.5 py-1 rounded bg-gray-800 text-gray-300 inline-block mb-2">${n.type === 'dump' ? '🧠 Dump' : '✨ Note'}</div>
                     <div class="text-xs text-gray-400 mb-3">${n.date}</div>
+
+                    <!-- 顯示專屬標籤徽章 -->
+                    <div class="flex gap-1.5 mb-3 flex-wrap">
+                        ${noteTags.map(t => `<span class="text-xs bg-teal-950/60 text-teal-300 border border-teal-800/50 px-2 py-0.5 rounded-md font-medium">${t}</span>`).join('')}
+                    </div>
 
                     ${n.original ? `<div class="text-gray-200 text-lg whitespace-pre-wrap mb-3 border-l-2 border-gray-700 pl-3 leading-relaxed">${n.original}</div>` : ''}
                     
@@ -350,7 +400,7 @@
                         <div class="text-teal-300 whitespace-pre-wrap">${n.summary}</div>
                     </div>
                 </div>
-            `).join('');
+            `;}).join('');
         }
 
         function filterByTag(tag) {
@@ -371,23 +421,23 @@
             if (modal) modal.classList.add('hidden');
         }
 
-        // 開啟編輯視窗並動態載入現有標籤按鈕
         function openEditModal(id) {
             currentEditingId = id;
             const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             const note = notes.find(n => n.id === id);
             const textarea = document.getElementById('edit-textarea');
+            const tagsInput = document.getElementById('edit-tags-input');
             const modal = document.getElementById('edit-modal');
             const tagChipsContainer = document.getElementById('modal-tag-chips');
 
-            if (note && textarea && modal && tagChipsContainer) {
+            if (note && textarea && tagsInput && modal && tagChipsContainer) {
                 textarea.value = note.summary;
+                tagsInput.value = note.tags ? note.tags.join(' ') : '';
                 
-                // 動態渲染編輯視窗內的現有標籤快捷按鈕
                 const existingTags = getExistingTags();
                 if (existingTags.length > 0) {
                     tagChipsContainer.innerHTML = existingTags.map(tag => `
-                        <button type="button" onclick="appendTagToEdit('${tag}')" class="text-xs bg-gray-800 hover:bg-teal-700 text-teal-300 hover:text-white px-2.5 py-1 rounded-lg whitespace-nowrap transition border border-gray-700">${tag}</button>
+                        <button type="button" onclick="appendTagToInput('${tag}')" class="text-xs bg-gray-800 hover:bg-teal-700 text-teal-300 hover:text-white px-2.5 py-1 rounded-lg whitespace-nowrap transition border border-gray-700">${tag}</button>
                     `).join('');
                 } else {
                     tagChipsContainer.innerHTML = '<span class="text-xs text-gray-500">目前尚無其他現有標籤</span>';
@@ -397,11 +447,13 @@
             }
         }
 
-        // 點擊快捷標籤後自動追加到編輯框結尾
-        function appendTagToEdit(tag) {
-            const textarea = document.getElementById('edit-textarea');
-            if (textarea) {
-                textarea.value = textarea.value.trim() + ' ' + tag;
+        function appendTagToInput(tag) {
+            const tagsInput = document.getElementById('edit-tags-input');
+            if (tagsInput) {
+                let currentTags = tagsInput.value.trim();
+                if (!currentTags.includes(tag)) {
+                    tagsInput.value = currentTags ? currentTags + ' ' + tag : tag;
+                }
             }
         }
 
@@ -413,12 +465,18 @@
 
         function saveEditedNote() {
             const textarea = document.getElementById('edit-textarea');
-            if (!textarea) return;
+            const tagsInput = document.getElementById('edit-tags-input');
+            if (!textarea || !tagsInput) return;
+
             const newText = textarea.value;
+            const newTagsStr = tagsInput.value.trim();
+            const newTags = newTagsStr ? newTagsStr.match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g) || ["#未分類"] : ["#未分類"];
+
             let notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             const index = notes.findIndex(n => n.id === currentEditingId);
             if (index !== -1) {
                 notes[index].summary = newText;
+                notes[index].tags = newTags;
                 localStorage.setItem('brainsync_notes', JSON.stringify(notes));
                 closeEditModal();
                 loadLibrary();

@@ -211,6 +211,17 @@
             });
         }
 
+        // 自動蒐集目前所有的現有標籤
+        function getExistingTags() {
+            const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
+            let tags = new Set();
+            notes.forEach(n => {
+                const matches = (n.summary || '').match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
+                if (matches) matches.forEach(t => tags.add(t));
+            });
+            return Array.from(tags);
+        }
+
         async function saveNote(type) {
             if (!apiKey) { askApiKey(); if (!apiKey) return; }
             const inputId = type === 'dump' ? 'dump-text' : 'note-text';
@@ -224,10 +235,15 @@
             btn.disabled = true;
 
             try {
-                // 強制要求 AI 輸出明確的 #標籤
+                // 取得現有標籤清單傳給 AI，避免重複建立相似標籤
+                const existingTags = getExistingTags();
+                let tagInstruction = existingTags.length > 0 
+                    ? `【重要規則】請優先從以下現有標籤中挑選最適用的分類：${existingTags.join(', ')}。只有在完全不適用時，才可以建立一個新的簡短標籤。結尾請務必加上 #標籤`
+                    : "請在結尾處加上合適的分類標籤（格式如：#標籤）。";
+
                 const promptText = type === 'dump' 
-                    ? "這是一段隨手筆記。請提供重點摘要，並在結尾處加上至少1個以 # 開頭的分類標籤（例如：#生活 #工作 #靈感）。內容：" + content
-                    : "請將以下內容進行結構化重點摘要，並在結尾處明確列出相關的分類標籤（格式如：#標籤1 #標籤2）。內容：" + content;
+                    ? `這是一段隨手筆記。請提供重點摘要，${tagInstruction}。內容：` + content
+                    : `請將以下內容進行結構化重點摘要，${tagInstruction}。內容：` + content;
 
                 let parts = [{ text: promptText }];
                 uploadedImagesBase64.forEach(imgBase64 => {
@@ -281,7 +297,6 @@
 
             let allTags = new Set();
             notes.forEach(n => {
-                // 精準捕捉所有以 # 開頭且後面接文字的標籤
                 const matches = (n.summary || '').match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
                 if (matches) matches.forEach(t => allTags.add(t));
             });

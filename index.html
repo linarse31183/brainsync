@@ -47,7 +47,7 @@
             <p class="text-gray-400 text-sm mb-5">快速記錄靈感、短期待辦與採購清單。AI 會自動為你分類與潤飾。</p>
             
             <div class="bg-[#151b2b] rounded-2xl p-4 border border-gray-800 focus-within:border-teal-500 transition shadow-xl">
-                <textarea id="dump-text" class="w-full bg-transparent outline-none resize-none h-44 text-lg text-gray-200 placeholder-gray-600" placeholder="現在在想什麼？點擊下方麥克風直接用說的..."></textarea>
+                <textarea id="dump-text" class="w-full bg-transparent outline-none resize-none h-44 text-lg text-gray-200 placeholder-gray-600" placeholder="現在在想什麼？點擊下方麥克風直接用說的，或貼上網址..."></textarea>
                 <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
                     <button onclick="startVoiceInput('dump-text')" id="mic-btn" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xl text-teal-400 hover:bg-gray-700 transition shadow">🎤</button>
                     <button onclick="saveNote('dump')" class="bg-[#059669] hover:bg-[#047857] text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition shadow-lg shadow-teal-900/50">
@@ -62,7 +62,7 @@
             <p class="text-gray-400 text-sm mb-5">貼上長文、網址，或**一次上傳多張圖片**讓 AI 綜合摘要。</p>
             
             <div class="bg-[#151b2b] rounded-2xl p-4 border border-gray-800 focus-within:border-blue-500 transition shadow-xl">
-                <textarea id="note-text" class="w-full bg-transparent outline-none resize-none h-28 text-lg text-gray-200 placeholder-gray-600" placeholder="在此輸入補充說明，或上傳多張圖片討論整個主題..."></textarea>
+                <textarea id="note-text" class="w-full bg-transparent outline-none resize-none h-28 text-lg text-gray-200 placeholder-gray-600" placeholder="在此輸入補充說明、網址，或上傳多張圖片討論..."></textarea>
                 
                 <div id="image-preview-container" class="flex gap-2 overflow-x-auto mb-3 pb-2 hidden"></div>
 
@@ -83,15 +83,12 @@
                 <button onclick="clearLibrary()" class="text-xs text-red-400 hover:text-red-300 bg-red-950/30 px-3 py-1.5 rounded-lg border border-red-900/50">清空全部</button>
             </div>
             
-            <!-- 標籤篩選列與向下展開按鈕區塊 -->
             <div class="mb-4 bg-[#151b2b] p-3 rounded-2xl border border-gray-800">
                 <div class="flex justify-between items-center mb-2">
                     <span class="text-xs text-gray-400">🏷️ 標籤篩選：</span>
                     <button onclick="toggleTagExpand()" id="tag-expand-btn" class="text-xs text-teal-400 hover:text-teal-300 bg-gray-800 px-2.5 py-1 rounded-lg border border-gray-700 transition">▼ 展開全部標籤</button>
                 </div>
-                <!-- 預設橫向捲動列 -->
                 <div id="tag-filter-bar" class="flex gap-2 overflow-x-auto pb-1"></div>
-                <!-- 向下展開的格狀標籤面板 (預設隱藏) -->
                 <div id="tag-expand-panel" class="hidden grid grid-cols-3 gap-2 pt-2 border-t border-gray-800 mt-2"></div>
             </div>
 
@@ -108,7 +105,7 @@
         <div class="bg-[#151b2b] w-full max-w-lg p-5 rounded-2xl border border-gray-800 shadow-2xl">
             <h3 class="text-lg font-bold mb-2 text-teal-400">✏️ 編輯筆記與標籤</h3>
             
-            <label class="text-xs text-gray-400 block mb-1">標籤 (多個標籤請用空格隔開，例如: #育兒 #副食品)：</label>
+            <label class="text-xs text-gray-400 block mb-1">標籤 (多個標籤請用空格隔開)：</label>
             <input type="text" id="edit-tags-input" class="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl p-3 text-base text-teal-300 outline-none mb-3" placeholder="#標籤">
             
             <p class="text-xs text-gray-400 mb-1">點擊下方現有標籤快速加入：</p>
@@ -245,6 +242,34 @@
             return Array.from(tags);
         }
 
+        // 偵測文字中的網址並萃取預覽資訊（特別支援 YouTube 封面）
+        function extractUrlPreview(text) {
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const matches = text.match(urlRegex);
+            if (!matches || matches.length === 0) return null;
+
+            const url = matches[0];
+            let preview = { url, title: url, image: null, type: 'web' };
+
+            // 檢查是否為 YouTube 影片
+            const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+            if (ytMatch && ytMatch[1]) {
+                const videoId = ytMatch[1];
+                preview.image = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                preview.title = "YouTube 影片連結";
+                preview.type = 'youtube';
+            } else {
+                // 一般網址簡化標題
+                try {
+                    const parsedUrl = new URL(url);
+                    preview.title = parsedUrl.hostname + parsedUrl.pathname;
+                } catch(e) {
+                    preview.title = url;
+                }
+            }
+            return preview;
+        }
+
         async function saveNote(type) {
             if (!apiKey) { askApiKey(); if (!apiKey) return; }
             const inputId = type === 'dump' ? 'dump-text' : 'note-text';
@@ -261,13 +286,12 @@
                 const existingTags = getExistingTags();
                 let tagListStr = existingTags.length > 0 ? existingTags.join(', ') : '無';
 
-                // 允許 AI 彈性產出多個相關標籤
                 const promptText = `請將以下內容直接進行結構化重點摘要。絕對不要輸出任何像是「以下為您整理」或「結構化重點摘要」等開場白或贅字，直接以標題開頭即可。請絕對不要在內文使用星號(*)或多餘的井號(#)。
 現有標籤清單：[${tagListStr}]
 請從現有標籤中挑選所有適用的分類，若需要可自創多個相關的簡短標籤（格式為 #標籤1 #標籤2）。
 請務必嚴格依照以下格式回傳：
 【摘要】
-(在此填入乾淨的重點摘要，包含小標題，嚴禁帶有 * 或不必要的 # 符號)
+(在此填入乾淨的重點摘要，包含小標題)
 
 【標籤】
 (#標籤1 #標籤2)
@@ -309,12 +333,14 @@
                 }
 
                 summaryPart = summaryPart.replace(/[*]/g, '').trim();
+                const urlPreview = extractUrlPreview(content);
 
                 const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
                 notes.unshift({
                     id: Date.now(),
                     original: content,
                     images: [...uploadedImagesBase64],
+                    urlPreview: urlPreview, // 儲存網址預覽資訊
                     summary: summaryPart,
                     tags: extractedTags,
                     date: new Date().toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' }),
@@ -355,7 +381,6 @@
 
             const tagsArray = Array.from(allTags);
 
-            // 渲染橫向捲動列
             tagBar.innerHTML = `
                 <button onclick="filterByTag(null)" class="text-xs px-3 py-1.5 rounded-xl whitespace-nowrap transition ${activeTagFilter === null ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">全部 (${notes.length})</button>
                 ${tagsArray.map(tag => `
@@ -363,7 +388,6 @@
                 `).join('')}
             `;
 
-            // 渲染向下展開的格狀面板
             tagExpandPanel.innerHTML = `
                 <button onclick="filterByTag(null); toggleTagExpand();" class="text-xs px-3 py-2 rounded-xl text-center truncate transition ${activeTagFilter === null ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">全部 (${notes.length})</button>
                 ${tagsArray.map(tag => `
@@ -375,7 +399,6 @@
             if (activeTagFilter) {
                 filteredNotes = notes.filter(n => {
                     if (n.tags && Array.isArray(n.tags)) {
-                        // 支援父子類別模糊對應：點擊 #育兒 可以同時涵蓋 #育兒、#副食品、#教養 等相關子標籤
                         return n.tags.some(t => t.includes(activeTagFilter) || activeTagFilter.includes(t));
                     }
                     return false;
@@ -389,6 +412,21 @@
 
             container.innerHTML = filteredNotes.map(n => {
                 let noteTags = n.tags && Array.isArray(n.tags) ? n.tags : ["#未分類"];
+
+                // 產生網址或 YouTube 預覽卡片 HTML
+                let urlPreviewHtml = '';
+                if (n.urlPreview) {
+                    urlPreviewHtml = `
+                        <a href="${n.urlPreview.url}" target="_blank" class="mb-3 flex items-center gap-3 bg-[#0a0f1d] p-3 rounded-xl border border-gray-700/60 hover:border-teal-500 transition block group">
+                            ${n.urlPreview.image ? `<img src="${n.urlPreview.image}" class="w-20 h-14 object-cover rounded-lg flex-shrink-0 border border-gray-800" />` : '<div class="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-xl flex-shrink-0">🔗</div>'}
+                            <div class="overflow-hidden">
+                                <div class="text-xs text-teal-400 font-bold mb-0.5">${n.urlPreview.type === 'youtube' ? '▶ YouTube 影片' : '🌐 網頁連結'}</div>
+                                <div class="text-sm text-gray-200 truncate group-hover:text-teal-300 transition">${n.urlPreview.title}</div>
+                                <div class="text-[10px] text-gray-500 truncate">${n.urlPreview.url}</div>
+                            </div>
+                        </a>
+                    `;
+                }
 
                 return `
                 <div class="bg-[#151b2b] p-5 rounded-2xl border border-gray-800 shadow-lg relative">
@@ -405,10 +443,14 @@
 
                     ${n.original ? `<div class="text-gray-200 text-lg whitespace-pre-wrap mb-3 border-l-2 border-gray-700 pl-3 leading-relaxed">${n.original}</div>` : ''}
                     
+                    <!-- 網址 / YouTube 預覽卡片 -->
+                    ${urlPreviewHtml}
+
+                    <!-- 圖片預覽列 -->
                     ${n.images && n.images.length > 0 ? `
                         <div class="mb-4 flex gap-2 overflow-x-auto pb-2">
                             ${n.images.map(img => `
-                                <img src="${img}" onclick="openImageModal('${img}')" class="h-16 w-16 rounded-lg border border-gray-700 object-cover shadow flex-shrink-0 cursor-pointer hover:opacity-90 transition flex-shrink-0" alt="原圖縮圖" />
+                                <img src="${img}" onclick="openImageModal('${img}')" class="h-16 w-16 rounded-lg border border-gray-700 object-cover shadow cursor-pointer hover:opacity-90 transition flex-shrink-0" alt="原圖縮圖" />
                             `).join('')}
                         </div>
                     ` : ''}

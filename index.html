@@ -166,7 +166,7 @@
                 return;
             }
             const randomNote = notes[Math.floor(Math.random() * notes.length)];
-            const cleanText = (randomNote.summary || '').replace(/[*`]/g, '').trim();
+            const cleanText = (randomNote.summary || '').replace(/[*#`]/g, '').trim();
             heroText.innerText = cleanText.substring(0, 45) + '...';
         }
 
@@ -249,12 +249,12 @@
                 const existingTags = getExistingTags();
                 let tagListStr = existingTags.length > 0 ? existingTags.join(', ') : '無';
 
-                const promptText = `請將以下內容直接進行結構化重點摘要。絕對不要輸出任何像是「以下為您整理」或「結構化重點摘要」等開場白或贅字，直接以標題開頭即可。
+                const promptText = `請將以下內容直接進行結構化重點摘要。絕對不要輸出任何像是「以下為您整理」或「結構化重點摘要」等開場白或贅字，直接以標題開頭即可。請絕對不要在內文使用星號(*)或多餘的井號(#)。
 現有標籤清單：[${tagListStr}]
 請從現有標籤中選出 1 個最適合的分類，若完全不符合則自創一個簡短標籤（格式為 #標籤）。
 請務必嚴格依照以下格式回傳：
 【摘要】
-(在此填入乾淨的重點摘要，包含小標題)
+(在此填入乾淨的重點摘要，包含小標題，嚴禁帶有 * 或不必要的 # 符號)
 
 【標籤】
 (#你的標籤)
@@ -295,6 +295,9 @@
                     }
                 }
 
+                // 強效防呆：嚴格清洗內文中的 * 符號
+                summaryPart = summaryPart.replace(/[*]/g, '').trim();
+
                 const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
                 notes.unshift({
                     id: Date.now(),
@@ -334,9 +337,6 @@
             notes.forEach(n => {
                 if (n.tags && Array.isArray(n.tags)) {
                     n.tags.forEach(t => allTags.add(t));
-                } else {
-                    const matches = (n.summary || '').match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
-                    if (matches) matches.forEach(t => allTags.add(t));
                 }
             });
 
@@ -353,7 +353,7 @@
                     if (n.tags && Array.isArray(n.tags)) {
                         return n.tags.includes(activeTagFilter);
                     }
-                    return (n.summary || '').includes(activeTagFilter);
+                    return false;
                 });
             }
 
@@ -363,11 +363,7 @@
             }
 
             container.innerHTML = filteredNotes.map(n => {
-                let noteTags = n.tags && Array.isArray(n.tags) ? n.tags : [];
-                if (noteTags.length === 0) {
-                    const matches = (n.summary || '').match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
-                    if (matches) noteTags = matches;
-                }
+                let noteTags = n.tags && Array.isArray(n.tags) ? n.tags : ["#未分類"];
 
                 return `
                 <div class="bg-[#151b2b] p-5 rounded-2xl border border-gray-800 shadow-lg relative">
@@ -464,7 +460,7 @@
             const tagsInput = document.getElementById('edit-tags-input');
             if (!textarea || !tagsInput) return;
 
-            const newText = textarea.value;
+            let newText = textarea.value.replace(/[*]/g, '').trim();
             const newTagsStr = tagsInput.value.trim();
             const newTags = newTagsStr ? newTagsStr.match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g) || ["#未分類"] : ["#未分類"];
 

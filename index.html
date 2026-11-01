@@ -83,7 +83,18 @@
                 <button onclick="clearLibrary()" class="text-xs text-red-400 hover:text-red-300 bg-red-950/30 px-3 py-1.5 rounded-lg border border-red-900/50">清空全部</button>
             </div>
             
-            <div id="tag-filter-bar" class="flex gap-2 overflow-x-auto mb-4 pb-2"></div>
+            <!-- 標籤篩選列與向下展開按鈕區塊 -->
+            <div class="mb-4 bg-[#151b2b] p-3 rounded-2xl border border-gray-800">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-gray-400">🏷️ 標籤篩選：</span>
+                    <button onclick="toggleTagExpand()" id="tag-expand-btn" class="text-xs text-teal-400 hover:text-teal-300 bg-gray-800 px-2.5 py-1 rounded-lg border border-gray-700 transition">▼ 展開全部標籤</button>
+                </div>
+                <!-- 預設橫向捲動列 -->
+                <div id="tag-filter-bar" class="flex gap-2 overflow-x-auto pb-1"></div>
+                <!-- 向下展開的格狀標籤面板 (預設隱藏) -->
+                <div id="tag-expand-panel" class="hidden grid grid-cols-3 gap-2 pt-2 border-t border-gray-800 mt-2"></div>
+            </div>
+
             <div id="library-list" class="space-y-4 pb-10"></div>
         </div>
     </main>
@@ -97,7 +108,7 @@
         <div class="bg-[#151b2b] w-full max-w-lg p-5 rounded-2xl border border-gray-800 shadow-2xl">
             <h3 class="text-lg font-bold mb-2 text-teal-400">✏️ 編輯筆記與標籤</h3>
             
-            <label class="text-xs text-gray-400 block mb-1">標籤 (多個標籤請用空格隔開，例如: #生活 #工作)：</label>
+            <label class="text-xs text-gray-400 block mb-1">標籤 (多個標籤請用空格隔開，例如: #育兒 #副食品)：</label>
             <input type="text" id="edit-tags-input" class="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl p-3 text-base text-teal-300 outline-none mb-3" placeholder="#標籤">
             
             <p class="text-xs text-gray-400 mb-1">點擊下方現有標籤快速加入：</p>
@@ -133,6 +144,7 @@
         let uploadedImagesBase64 = [];
         let currentEditingId = null;
         let activeTagFilter = null;
+        let isTagExpanded = false;
 
         function askApiKey() {
             const key = prompt('請輸入您的 Gemini API Key (申請免費，資料僅存手機):', apiKey || '');
@@ -249,15 +261,16 @@
                 const existingTags = getExistingTags();
                 let tagListStr = existingTags.length > 0 ? existingTags.join(', ') : '無';
 
+                // 允許 AI 彈性產出多個相關標籤
                 const promptText = `請將以下內容直接進行結構化重點摘要。絕對不要輸出任何像是「以下為您整理」或「結構化重點摘要」等開場白或贅字，直接以標題開頭即可。請絕對不要在內文使用星號(*)或多餘的井號(#)。
 現有標籤清單：[${tagListStr}]
-請從現有標籤中選出 1 個最適合的分類，若完全不符合則自創一個簡短標籤（格式為 #標籤）。
+請從現有標籤中挑選所有適用的分類，若需要可自創多個相關的簡短標籤（格式為 #標籤1 #標籤2）。
 請務必嚴格依照以下格式回傳：
 【摘要】
 (在此填入乾淨的重點摘要，包含小標題，嚴禁帶有 * 或不必要的 # 符號)
 
 【標籤】
-(#你的標籤)
+(#標籤1 #標籤2)
 
 內容：` + content;
 
@@ -291,11 +304,10 @@
                 } else {
                     const matches = aiResponseText.match(/#[a-zA-Z0-9\u4e00-\u9fa5_]+/g);
                     if (matches && matches.length > 0) {
-                        extractedTags = [matches[matches.length - 1]];
+                        extractedTags = matches;
                     }
                 }
 
-                // 強效防呆：嚴格清洗內文中的 * 符號
                 summaryPart = summaryPart.replace(/[*]/g, '').trim();
 
                 const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
@@ -331,7 +343,8 @@
             const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
             const container = document.getElementById('library-list');
             const tagBar = document.getElementById('tag-filter-bar');
-            if (!container || !tagBar) return;
+            const tagExpandPanel = document.getElementById('tag-expand-panel');
+            if (!container || !tagBar || !tagExpandPanel) return;
 
             let allTags = new Set();
             notes.forEach(n => {
@@ -340,10 +353,21 @@
                 }
             });
 
+            const tagsArray = Array.from(allTags);
+
+            // 渲染橫向捲動列
             tagBar.innerHTML = `
-                <button onclick="filterByTag(null)" class="text-sm px-4 py-2 rounded-xl whitespace-nowrap transition ${activeTagFilter === null ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">全部 (${notes.length})</button>
-                ${Array.from(allTags).map(tag => `
-                    <button onclick="filterByTag('${tag}')" class="text-sm px-4 py-2 rounded-xl whitespace-nowrap transition ${activeTagFilter === tag ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">${tag}</button>
+                <button onclick="filterByTag(null)" class="text-xs px-3 py-1.5 rounded-xl whitespace-nowrap transition ${activeTagFilter === null ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">全部 (${notes.length})</button>
+                ${tagsArray.map(tag => `
+                    <button onclick="filterByTag('${tag}')" class="text-xs px-3 py-1.5 rounded-xl whitespace-nowrap transition ${activeTagFilter === tag ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">${tag}</button>
+                `).join('')}
+            `;
+
+            // 渲染向下展開的格狀面板
+            tagExpandPanel.innerHTML = `
+                <button onclick="filterByTag(null); toggleTagExpand();" class="text-xs px-3 py-2 rounded-xl text-center truncate transition ${activeTagFilter === null ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">全部 (${notes.length})</button>
+                ${tagsArray.map(tag => `
+                    <button onclick="filterByTag('${tag}'); toggleTagExpand();" class="text-xs px-3 py-2 rounded-xl text-center truncate transition ${activeTagFilter === tag ? 'bg-teal-600 text-white font-bold' : 'bg-gray-800 text-gray-300 hover:text-white'}">${tag}</button>
                 `).join('')}
             `;
 
@@ -351,7 +375,8 @@
             if (activeTagFilter) {
                 filteredNotes = notes.filter(n => {
                     if (n.tags && Array.isArray(n.tags)) {
-                        return n.tags.includes(activeTagFilter);
+                        // 支援父子類別模糊對應：點擊 #育兒 可以同時涵蓋 #育兒、#副食品、#教養 等相關子標籤
+                        return n.tags.some(t => t.includes(activeTagFilter) || activeTagFilter.includes(t));
                     }
                     return false;
                 });
@@ -383,7 +408,7 @@
                     ${n.images && n.images.length > 0 ? `
                         <div class="mb-4 flex gap-2 overflow-x-auto pb-2">
                             ${n.images.map(img => `
-                                <img src="${img}" onclick="openImageModal('${img}')" class="h-16 w-16 rounded-lg border border-gray-700 object-cover shadow cursor-pointer hover:opacity-90 transition flex-shrink-0" alt="原圖縮圖" />
+                                <img src="${img}" onclick="openImageModal('${img}')" class="h-16 w-16 rounded-lg border border-gray-700 object-cover shadow flex-shrink-0 cursor-pointer hover:opacity-90 transition flex-shrink-0" alt="原圖縮圖" />
                             `).join('')}
                         </div>
                     ` : ''}
@@ -393,6 +418,21 @@
                     </div>
                 </div>
             `;}).join('');
+        }
+
+        function toggleTagExpand() {
+            isTagExpanded = !isTagExpanded;
+            const panel = document.getElementById('tag-expand-panel');
+            const btn = document.getElementById('tag-expand-btn');
+            if (panel && btn) {
+                if (isTagExpanded) {
+                    panel.classList.remove('hidden');
+                    btn.innerText = "▲ 收起標籤";
+                } else {
+                    panel.classList.add('hidden');
+                    btn.innerText = "▼ 展開全部標籤";
+                }
+            }
         }
 
         function filterByTag(tag) {

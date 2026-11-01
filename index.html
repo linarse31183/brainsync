@@ -254,7 +254,7 @@
             if (ytMatch && ytMatch[1]) {
                 const videoId = ytMatch[1];
                 preview.image = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-                preview.title = "YouTube 影片連結";
+                preview.title = "YouTube 影片攻略或內容";
                 preview.type = 'youtube';
             } else {
                 try {
@@ -282,9 +282,13 @@
             try {
                 const existingTags = getExistingTags();
                 let tagListStr = existingTags.length > 0 ? existingTags.join(', ') : '無';
-
-                // 獨立解析當前內容的網址預覽，確保不被汙染
                 const currentUrlPreview = extractUrlPreview(content);
+
+                // 強制導引 AI 針對使用者輸入的「具體網址或文字」進行實質分析，不准亂代入其他主題
+                let contextNote = content;
+                if (currentUrlPreview && currentUrlPreview.type === 'youtube') {
+                    contextNote = `這是一則 YouTube 影片連結 (${currentUrlPreview.url})。請根據該影片網址可能的領域（例如手遊攻略、教學、評測等）提供實質結構化摘要，絕對不要瞎掰成廚房鍋具或無關主題。使用者輸入的原文：` + content;
+                }
 
                 const promptText = `請將以下內容直接進行結構化重點摘要。絕對不要輸出任何像是「以下為您整理」或「結構化重點摘要」等開場白或贅字，直接以標題開頭即可。請絕對不要在內文使用星號(*)或多餘的井號(#)。
 現有標籤清單：[${tagListStr}]
@@ -296,7 +300,7 @@
 【標籤】
 (#標籤1 #標籤2)
 
-內容：` + content;
+內容：` + contextNote;
 
                 let parts = [{ text: promptText }];
                 uploadedImagesBase64.forEach(imgBase64 => {
@@ -339,7 +343,7 @@
                     id: Date.now(),
                     original: content,
                     images: [...uploadedImagesBase64],
-                    urlPreview: currentUrlPreview, // 獨立綁定當前網址預覽
+                    urlPreview: currentUrlPreview,
                     summary: summaryPart,
                     tags: extractedTags,
                     date: new Date().toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' }),
@@ -513,7 +517,6 @@
                     tagChipsContainer.innerHTML = '<span class="text-xs text-gray-500">目前尚無其他現有標籤</span>';
                 }
 
-                modal.classList.add('hidden'); // Fix typo in previous version
                 modal.classList.remove('hidden');
             }
         }

@@ -242,7 +242,6 @@
             return Array.from(tags);
         }
 
-        // 偵測文字中的網址並萃取預覽資訊（特別支援 YouTube 封面）
         function extractUrlPreview(text) {
             const urlRegex = /(https?:\/\/[^\s]+)/g;
             const matches = text.match(urlRegex);
@@ -251,7 +250,6 @@
             const url = matches[0];
             let preview = { url, title: url, image: null, type: 'web' };
 
-            // 檢查是否為 YouTube 影片
             const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
             if (ytMatch && ytMatch[1]) {
                 const videoId = ytMatch[1];
@@ -259,7 +257,6 @@
                 preview.title = "YouTube 影片連結";
                 preview.type = 'youtube';
             } else {
-                // 一般網址簡化標題
                 try {
                     const parsedUrl = new URL(url);
                     preview.title = parsedUrl.hostname + parsedUrl.pathname;
@@ -286,12 +283,15 @@
                 const existingTags = getExistingTags();
                 let tagListStr = existingTags.length > 0 ? existingTags.join(', ') : '無';
 
+                // 獨立解析當前內容的網址預覽，確保不被汙染
+                const currentUrlPreview = extractUrlPreview(content);
+
                 const promptText = `請將以下內容直接進行結構化重點摘要。絕對不要輸出任何像是「以下為您整理」或「結構化重點摘要」等開場白或贅字，直接以標題開頭即可。請絕對不要在內文使用星號(*)或多餘的井號(#)。
 現有標籤清單：[${tagListStr}]
 請從現有標籤中挑選所有適用的分類，若需要可自創多個相關的簡短標籤（格式為 #標籤1 #標籤2）。
 請務必嚴格依照以下格式回傳：
 【摘要】
-(在此填入乾淨的重點摘要，包含小標題)
+(在此填入針對以下內容的乾淨重點摘要，包含小標題)
 
 【標籤】
 (#標籤1 #標籤2)
@@ -333,14 +333,13 @@
                 }
 
                 summaryPart = summaryPart.replace(/[*]/g, '').trim();
-                const urlPreview = extractUrlPreview(content);
 
                 const notes = JSON.parse(localStorage.getItem('brainsync_notes') || '[]');
                 notes.unshift({
                     id: Date.now(),
                     original: content,
                     images: [...uploadedImagesBase64],
-                    urlPreview: urlPreview, // 儲存網址預覽資訊
+                    urlPreview: currentUrlPreview, // 獨立綁定當前網址預覽
                     summary: summaryPart,
                     tags: extractedTags,
                     date: new Date().toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' }),
@@ -413,7 +412,6 @@
             container.innerHTML = filteredNotes.map(n => {
                 let noteTags = n.tags && Array.isArray(n.tags) ? n.tags : ["#未分類"];
 
-                // 產生網址或 YouTube 預覽卡片 HTML
                 let urlPreviewHtml = '';
                 if (n.urlPreview) {
                     urlPreviewHtml = `
@@ -443,10 +441,8 @@
 
                     ${n.original ? `<div class="text-gray-200 text-lg whitespace-pre-wrap mb-3 border-l-2 border-gray-700 pl-3 leading-relaxed">${n.original}</div>` : ''}
                     
-                    <!-- 網址 / YouTube 預覽卡片 -->
                     ${urlPreviewHtml}
 
-                    <!-- 圖片預覽列 -->
                     ${n.images && n.images.length > 0 ? `
                         <div class="mb-4 flex gap-2 overflow-x-auto pb-2">
                             ${n.images.map(img => `
@@ -517,6 +513,7 @@
                     tagChipsContainer.innerHTML = '<span class="text-xs text-gray-500">目前尚無其他現有標籤</span>';
                 }
 
+                modal.classList.add('hidden'); // Fix typo in previous version
                 modal.classList.remove('hidden');
             }
         }
